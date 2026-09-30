@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Adaptive icon foreground: "Plot Screen". All artwork sits inside the 66dp safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- bezel -->
+    <path
+        android:fillColor="#FF3E3C3D"
+        android:pathData="M37,32H71A9,9 0,0 1,80 41V67A9,9 0,0 1,71 76H37A9,9 0,0 1,28 67V41A9,9 0,0 1,37 32Z" />
+    <!-- screen -->
+    <path
+        android:fillColor="#FFDCDDD6"
+        android:pathData="M37,36H71A5,5 0,0 1,76 41V67A5,5 0,0 1,71 72H37A5,5 0,0 1,32 67V41A5,5 0,0 1,37 36Z" />
+    <!-- axes -->
+    <path
+        android:pathData="M36,62H72M46,40V68"
+        android:strokeWidth="1.6"
+        android:strokeColor="#FF8D8A8C"
+        android:strokeLineCap="round" />
+    <!-- curve -->
+    <path
+        android:pathData="M37,45C43,70 51,70 56,58S66,40 72,43"
+        android:strokeWidth="3.2"
+        android:strokeColor="#FF2A2829"
+        android:strokeLineCap="round" />
+    <!-- marker -->
+    <path
+        android:fillColor="#FFE8743B"
+        android:pathData="M52.6,58A3.4,3.4 0,1 1,59.4 58A3.4,3.4 0,1 1,52.6 58Z" />
+</vector>

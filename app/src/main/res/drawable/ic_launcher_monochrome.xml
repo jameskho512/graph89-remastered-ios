@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Themed-icon layer (Android 13+). Only alpha is used; the system supplies the tint.
+     The bezel is a ring (evenOdd cut-out) so the screen shows the themed background. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- bezel ring -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M37,32H71A9,9 0,0 1,80 41V67A9,9 0,0 1,71 76H37A9,9 0,0 1,28 67V41A9,9 0,0 1,37 32Z M37,36A5,5 0,0 0,32 41V67A5,5 0,0 0,37 72H71A5,5 0,0 0,76 67V41A5,5 0,0 0,71 36Z" />
+    <!-- axes at half strength -->
+    <path
+        android:pathData="M36,62H72M46,40V68"
+        android:strokeWidth="1.6"
+        android:strokeAlpha="0.5"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round" />
+    <!-- curve -->
+    <path
+        android:pathData="M37,45C43,70 51,70 56,58S66,40 72,43"
+        android:strokeWidth="3.2"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round" />
+    <!-- marker -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M52.6,58A3.4,3.4 0,1 1,59.4 58A3.4,3.4 0,1 1,52.6 58Z" />
+</vector>

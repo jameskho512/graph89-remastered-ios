@@ -1,0 +1,24 @@
+# Build output
+build/
+.gradle/
+.kotlin/
+.cxx/
+.externalNativeBuild/
+*.apk
+*.aab
+*.log
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+
+# Local machine settings (SDK path)
+local.properties
+
+# Signing: the upload key and its passwords never go in git
+keystore.properties
+*.jks
+*.keystore
+
+# TI OS image bundled into debug builds for personal use. The TI OS is copyrighted: never commit it.
+app/src/debug/assets/rom/
