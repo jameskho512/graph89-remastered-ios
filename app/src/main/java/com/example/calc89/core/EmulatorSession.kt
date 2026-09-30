@@ -13,6 +13,7 @@ package com.example.calc89.core
 
 import android.content.Context
 import android.os.Build
+import android.os.SystemClock
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.view.View
@@ -93,6 +94,9 @@ class EmulatorSession(private val context: Context) {
 
     private var run: Run? = null
     @Volatile private var firstCycleComplete = false
+
+    /** When ON was last pressed (uptime ms): [2nd] [ON] turns the calculator off, its idle timer does too. */
+    @Volatile private var lastOnPress = 0L
 
     private var click: KeyClick? = null
 
@@ -225,6 +229,7 @@ class EmulatorSession(private val context: Context) {
             if (config.hapticMs > 0) vibrate(config.hapticMs.toLong(), config.hapticStrength)
             if (config.audioFeedback) click?.play()
         }
+        if (active == 1 && key == model.engine.onKey) lastOnPress = SystemClock.uptimeMillis()
         EmulatorCore.nativeSendKey(key, active)
     }
 
@@ -358,7 +363,10 @@ class EmulatorSession(private val context: Context) {
                 screen.refresh()
                 val screenOff = screen.isScreenOff()
 
-                if (firstCycleComplete && !r.killed && config.exitOnScreenOff && !prevScreenOff && screenOff) {
+                // only when the user turned it off: after its idle timer (APD) the screen just stays blank
+                if (firstCycleComplete && !r.killed && config.exitOnScreenOff && !prevScreenOff && screenOff &&
+                    SystemClock.uptimeMillis() - lastOnPress < OFF_AFTER_ON_MS
+                ) {
                     onExit()
                 }
                 prevScreenOff = screenOff
@@ -389,6 +397,8 @@ class EmulatorSession(private val context: Context) {
         const val ENGINE_LOOP_SLEEP = 30
         const val SCREEN_LOOP_SLEEP = 50L
         const val BOOT_TIME_MS = 1000L
+        /** The calculator turns off within this time of an ON press when the user turned it off. */
+        const val OFF_AFTER_ON_MS = 2000L
     }
 }
 

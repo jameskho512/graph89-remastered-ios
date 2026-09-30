@@ -11,7 +11,8 @@
  */
 package com.example.calc89.core
 
-enum class Engine { TIEMU, TILEM }
+/** [onKey] is the native key code of the calculator's ON key. */
+enum class Engine(val onKey: Int) { TIEMU(78), TILEM(41) }
 
 /**
  * The emulated calculator models. [type] is the calculator type code shared with the native wrapper,
