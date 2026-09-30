@@ -20,6 +20,7 @@ import android.graphics.Rect
 import android.graphics.RectF
 import java.io.DataInputStream
 import java.util.Locale
+import kotlin.math.roundToInt
 
 class KeyPress(val keyCode: Int, var touchId: Int)
 
@@ -68,8 +69,9 @@ class Skin(private val context: Context, private val type: SkinType, private val
 
         val maxZoom = width / model.lcdWidth
         val zoom = adjustScreenZoom(config.screenScale, maxZoom, width, height)
-        val screenW = model.lcdWidth * zoom
-        val screenH = model.lcdHeight * zoom + 10
+        val screenW = (model.lcdWidth * zoom).roundToInt()
+        val lcdH = (model.lcdHeight * zoom).roundToInt()
+        val screenH = lcdH + 10
 
         val lcd = config.lcd()
         lcdPixelOff = lcd.pixelOff
@@ -123,7 +125,7 @@ class Skin(private val context: Context, private val type: SkinType, private val
         overlays.clear()
 
         val left = width / 2 - screenW / 2
-        screen = EmulatorScreen(Rect(left, 5, left + screenW, screenH + 5), model.lcdWidth, model.lcdHeight, onFrame)
+        screen = EmulatorScreen(Rect(left, 5, left + screenW, lcdH + 5), model.lcdWidth, model.lcdHeight, onFrame)
     }
 
     /**
@@ -156,10 +158,14 @@ class Skin(private val context: Context, private val type: SkinType, private val
         skinInCanvas = dest
     }
 
-    private fun adjustScreenZoom(scale: Int, maxZoom: Int, width: Int, height: Int): Int = when {
-        scale <= 0 -> minOf(width / model.lcdWidth, (0.5 * height).toInt() / model.lcdHeight)
-        scale > maxZoom -> maxZoom
-        else -> scale
+    /**
+     * Automatic: the LCD fills the width (up to half the height), at a fractional zoom when the width is not a
+     * multiple of the LCD's. A chosen scale stays a whole number, for pixels of one exact size.
+     */
+    private fun adjustScreenZoom(scale: Int, maxZoom: Int, width: Int, height: Int): Float = when {
+        scale <= 0 -> minOf(width.toFloat() / model.lcdWidth, 0.5f * height / model.lcdHeight)
+        scale > maxZoom -> maxZoom.toFloat()
+        else -> scale.toFloat()
     }
 
     private fun parseInfo() {
