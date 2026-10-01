@@ -36,6 +36,9 @@ struct SkinPickerView: View {
     /// The items in the centre of the two strips; they change while the strips scroll.
     @State private var skinCentre: SkinType?
     @State private var lcdCentre: LcdTheme?
+    /// Items a strip is asked to bring to its centre (a tap, or the link between skin and LCD).
+    @State private var skinRequest: SkinType?
+    @State private var lcdRequest: LcdTheme?
     /// The items last settled in the centre. The strips act only on a change: the items the picker opened on are not
     /// a choice, and acting on them would re-link (and overwrite) the saved LCD just by opening the picker.
     @State private var settledSkin: SkinType
@@ -69,7 +72,7 @@ struct SkinPickerView: View {
         let snapshot = screen
         VStack(spacing: 0) {
             // ---- LCD schemes
-            LcdStrip(centre: $lcdCentre, settled: settledLcd, config: config, screen: snapshot) { editingCustom = true }
+            LcdStrip(centre: $lcdCentre, request: $lcdRequest, settled: settledLcd, config: config, screen: snapshot) { editingCustom = true }
                 .frame(height: 88)
                 .padding(.top, 8)
 
@@ -93,7 +96,7 @@ struct SkinPickerView: View {
                 .padding(.horizontal, 16)
 
             // ---- skins
-            SkinStrip(centre: $skinCentre, settled: settledSkin, inUse: config.skin, thumbs: thumbs)
+            SkinStrip(centre: $skinCentre, request: $skinRequest, settled: settledSkin, inUse: config.skin, thumbs: thumbs)
                 .frame(height: skinCardHeight)
                 .padding(.bottom, 16)
         }
@@ -214,7 +217,7 @@ struct SkinPickerView: View {
         c.skin = t
         if c.linkLcdToSkin, let match = LcdTheme(rawValue: t.rawValue) {
             c.lcdTheme = match
-            if lcdCentre != match { withAnimation { lcdCentre = match } }
+            if lcdCentre != match { lcdRequest = match }
         }
         if c != model.config { model.updateConfig(c) }
     }
@@ -229,7 +232,7 @@ struct SkinPickerView: View {
             model.updateConfig(c)
         }
         if model.config.linkLcdToSkin, let match = SkinType(rawValue: lcd.rawValue), skinCentre != match {
-            withAnimation { skinCentre = match }
+            skinRequest = match
         }
     }
 }
@@ -246,7 +249,9 @@ private struct ThumbKey: Equatable {
 /// The LCD schemes, Custom at the far left: the one in the centre is the choice. Tapping another one brings it to
 /// the centre; tapping Custom in the centre edits it.
 private struct LcdStrip: View {
+    /// The item in the centre, as the strip scrolls.
     @Binding var centre: LcdTheme?
+    @Binding var request: LcdTheme?
     /// Where the strip opens.
     let settled: LcdTheme
     let config: EmulatorConfig
@@ -258,7 +263,7 @@ private struct LcdStrip: View {
             let centreX = geo.frame(in: .global).midX
             ScrollViewReader { proxy in
                 ScrollView(.horizontal) {
-                    LazyHStack(spacing: lcdSpacing) {
+                    HStack(spacing: lcdSpacing) {
                         ForEach(LcdTheme.allCases, id: \.self) { lcd in
                             Button { tapped(lcd) } label: {
                                 LcdSwatch(
@@ -273,6 +278,7 @@ private struct LcdStrip: View {
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel("\(lcd.label) LCD")
+                            .reportsCentre(lcd.rawValue)
                             .carousel(centreX: centreX, step: lcdItemWidth + lcdSpacing)
                         }
                     }
@@ -281,7 +287,15 @@ private struct LcdStrip: View {
                 .scrollIndicators(.hidden)
                 .contentMargins(.horizontal, max((geo.size.width - lcdItemWidth) / 2, 0), for: .scrollContent)
                 .scrollTargetBehavior(.viewAligned)
-                .scrollPosition(id: $centre, anchor: .center)
+                .onPreferenceChange(StripCentres.self) { mids in
+                    if let id = nearest(mids, to: centreX), let lcd = LcdTheme(rawValue: id), lcd != centre { centre = lcd }
+                }
+                .onAppear { DispatchQueue.main.async { proxy.scrollTo(settled, anchor: .center) } }
+                .onChange(of: request) { _, target in
+                    guard let target else { return }
+                    withAnimation { proxy.scrollTo(target, anchor: .center) }
+                    request = nil
+                }
             }
         }
     }
@@ -294,7 +308,7 @@ private struct LcdStrip: View {
         if lcd == centre {
             if lcd == .CUSTOM { onEditCustom() }
         } else {
-            withAnimation { centre = lcd }
+            request = lcd
         }
     }
 }
@@ -456,7 +470,9 @@ private struct CalculatorPreview: View {
 
 /// The skins: the one in the centre is the choice. Tapping another one brings it to the centre.
 private struct SkinStrip: View {
+    /// The item in the centre, as the strip scrolls.
     @Binding var centre: SkinType?
+    @Binding var request: SkinType?
     /// Where the strip opens.
     let settled: SkinType
     let inUse: SkinType
@@ -467,12 +483,13 @@ private struct SkinStrip: View {
             let centreX = geo.frame(in: .global).midX
             ScrollViewReader { proxy in
                 ScrollView(.horizontal) {
-                    LazyHStack(spacing: skinSpacing) {
+                    HStack(spacing: skinSpacing) {
                         ForEach(SkinType.allCases, id: \.self) { t in
-                            Button { withAnimation { centre = t } } label: {
+                            Button { if t != centre { request = t } } label: {
                                 SkinCard(type: t, image: thumbs[t], inUse: t == inUse, centred: t == centre)
                             }
                             .buttonStyle(.plain)
+                            .reportsCentre(t.rawValue)
                             .carousel(centreX: centreX, step: skinCardWidth + skinSpacing)
                         }
                     }
@@ -481,7 +498,15 @@ private struct SkinStrip: View {
                 .scrollIndicators(.hidden)
                 .contentMargins(.horizontal, max((geo.size.width - skinCardWidth) / 2, 0), for: .scrollContent)
                 .scrollTargetBehavior(.viewAligned)
-                .scrollPosition(id: $centre, anchor: .center)
+                .onPreferenceChange(StripCentres.self) { mids in
+                    if let id = nearest(mids, to: centreX), let t = SkinType(rawValue: id), t != centre { centre = t }
+                }
+                .onAppear { DispatchQueue.main.async { proxy.scrollTo(settled, anchor: .center) } }
+                .onChange(of: request) { _, target in
+                    guard let target else { return }
+                    withAnimation { proxy.scrollTo(target, anchor: .center) }
+                    request = nil
+                }
             }
         }
     }
@@ -627,8 +652,32 @@ private struct CustomLcdEditor: View {
 
 // MARK: - drawing and colours
 
+/// Where the items of a strip are on screen: their ids and the x of their centres (global coordinates).
+private struct StripCentres: PreferenceKey {
+    static let defaultValue: [String: CGFloat] = [:]
+
+    static func reduce(value: inout [String: CGFloat], nextValue: () -> [String: CGFloat]) {
+        value.merge(nextValue()) { $1 }
+    }
+}
+
+/// The id of the item whose centre is nearest to `x`.
+private func nearest(_ mids: [String: CGFloat], to x: CGFloat) -> String? {
+    mids.min { abs($0.value - x) < abs($1.value - x) }?.key
+}
+
 /// Neighbours of the centred item shrink and fade.
 private extension View {
+    /// Reports where this item of a strip is (see StripCentres): the strip tells its centred item from these, as
+    /// iOS 17's scroll position does not count the margins that centre the items.
+    func reportsCentre(_ id: String) -> some View {
+        background {
+            GeometryReader { g in
+                Color.clear.preference(key: StripCentres.self, value: [id: g.frame(in: .global).midX])
+            }
+        }
+    }
+
     func carousel(centreX: CGFloat, step: CGFloat) -> some View {
         visualEffect { content, proxy in
             content
