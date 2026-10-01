@@ -379,6 +379,11 @@ int ilp_reset(CableHandle *h) {
 	return t2f_flag = f2t_flag = 0;
 }
 
+/* Graph89: the longest wait for the calculator to take or give one byte, in tenths of a second (TO_ELAPSED's unit;
+   linkp.cable_timeout is in microseconds, which made both waits practically endless: a calculator that stops reading
+   or sending hung the engine thread, and the app with it). */
+#define G89_LINK_BYTE_TIMEOUT 100
+
 int ilp_send(CableHandle *h, uint8_t *data, uint32_t len) {
 	unsigned int i;
 	tiTIME clk;
@@ -394,8 +399,8 @@ int ilp_send(CableHandle *h, uint8_t *data, uint32_t len) {
 		TO_START(clk);
 		while (f2t_flag) {
 			hw_m68k_run(1);
-			//if(TO_ELAPSED(clk, linkp.cable_timeout))
-			//	return ERROR_WRITE_TIMEOUT;
+			if (TO_ELAPSED(clk, G89_LINK_BYTE_TIMEOUT))
+				return ERROR_WRITE_TIMEOUT;
 		};
 	}
 
@@ -410,8 +415,8 @@ int ilp_recv(CableHandle *h, uint8_t *data, uint32_t len) {
 		TO_START(clk);
 		while (!t2f_flag) {
 			hw_m68k_run(1);
-			if (TO_ELAPSED(clk, linkp.cable_timeout*2))
-				return ERROR_WRITE_TIMEOUT;
+			if (TO_ELAPSED(clk, G89_LINK_BYTE_TIMEOUT))
+				return ERROR_READ_TIMEOUT;
 		};
 
 		data[i] = t2f_data;

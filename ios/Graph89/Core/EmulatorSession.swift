@@ -105,6 +105,7 @@ final class EmulatorSession {
     private var viewHeight = 0
     private var resumed = false
     private var installingFlag = false
+    private var held = false
 
     /// A ROM install runs native code that shares global state with the engine: no start meanwhile.
     var installing: Bool {
@@ -193,13 +194,22 @@ final class EmulatorSession {
         }
     }
 
-    /// Starts the calculator again after a stop (settings closed), when everything it needs is there.
+    /// While held (Settings is open over the calculator) the calculator stays stopped, also when its view lays out
+    /// again; released, it starts with the session's config as it is then.
+    func hold(_ on: Bool) {
+        locked {
+            held = on
+            if on { stop() } else { startIfReady() }
+        }
+    }
+
+    /// Starts the calculator again after a stop, when everything it needs is there.
     func restart() {
         locked { startIfReady() }
     }
 
     private func startIfReady() {
-        if resumed && !installingFlag && !RomInstaller.running && viewWidth > 0 && viewHeight > 0 && run == nil {
+        if resumed && !held && !installingFlag && !RomInstaller.running && viewWidth > 0 && viewHeight > 0 && run == nil {
             start(viewWidth, viewHeight)
         }
     }

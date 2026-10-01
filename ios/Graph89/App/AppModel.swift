@@ -150,7 +150,7 @@ final class AppModel {
     func openSettings() {
         menuOpen = false
         session.keypad.unpressAll()
-        session.stop()  // settings are applied by starting the emulation again with the new values
+        session.hold(true)  // settings are applied by starting the emulation again with the new values
         settingsPath = []
         settingsOpen = true
     }
@@ -159,7 +159,7 @@ final class AppModel {
         settingsOpen = false
         settingsPath = []
         session.config = config
-        session.restart()
+        session.hold(false)
     }
 
     /// The calculator list, from the menu: the calculator stops (and saves) like the Android app's Exit.
