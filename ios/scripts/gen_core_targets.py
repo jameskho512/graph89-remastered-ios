@@ -13,7 +13,8 @@ import sys
 IOS = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 JNI = os.path.normpath(os.path.join(IOS, '..', 'app', 'src', 'main', 'jni'))
 
-# module -> Xcode target name; the order is the link order (users first)
+# The modules Application.mk builds (APP_MODULES) -> Xcode target name. glib's gmodule, gthread and gobject
+# makefiles have no sources in this tree and are not built.
 TARGETS = {
     'wrapper': 'G89Wrapper',
     'tilem-2.0': 'G89TilEm',
@@ -22,9 +23,6 @@ TARGETS = {
     'tifiles2-1.1.5': 'G89TiFiles',
     'ticables2-1.3.3': 'G89TiCables',
     'ticonv-1.1.3': 'G89TiConv',
-    'gobject-2.0': 'G89GObject',
-    'gthread-2.0': 'G89GThread',
-    'gmodule-2.0': 'G89GModule',
     'glib-2.0': 'G89GLib',
 }
 

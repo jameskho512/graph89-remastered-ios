@@ -50,9 +50,6 @@ targets:
       - target: G89TiFiles
       - target: G89TiCables
       - target: G89TiConv
-      - target: G89GObject
-      - target: G89GThread
-      - target: G89GModule
       - target: G89GLib
       - sdk: libz.tbd
       - sdk: libiconv.tbd

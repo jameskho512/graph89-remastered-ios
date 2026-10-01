@@ -40,7 +40,7 @@ jobs:
         run: |
           set -o pipefail
           mkdir -p build
-          for t in G89GLib G89GModule G89GThread G89GObject G89TiConv G89TiCables G89TiFiles G89TiCalcs G89TiEmu G89TilEm G89Wrapper; do
+          for t in G89GLib G89TiConv G89TiCables G89TiFiles G89TiCalcs G89TiEmu G89TilEm G89Wrapper; do
             echo "::group::$t"
             xcodebuild build -project ios/Graph89.xcodeproj -target "$t" -sdk iphonesimulator -arch arm64               SYMROOT="$GITHUB_WORKSPACE/build/cores" 2>&1 | tee "build/core-$t.log" | grep -E "error:|BUILD (SUCCEEDED|FAILED)" | head -80 || true
             echo "::endgroup::"
