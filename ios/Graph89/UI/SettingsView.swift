@@ -36,6 +36,7 @@ struct SettingsView: View {
                 NavigationLink(value: SettingsRoute.skinPicker) {
                     LabeledRow(title: "Skin and LCD", detail: "\(config.skin.label) skin, \(config.lcdTheme.label) LCD")
                 }
+                .accessibilityIdentifier("settings.skin")
             }
 
             Section("Screen") {
@@ -108,6 +109,7 @@ struct SettingsView: View {
                 NavigationLink(value: SettingsRoute.calculators) {
                     LabeledRow(title: "Calculators", detail: "Switch, add or remove calculators.")
                 }
+                .accessibilityIdentifier("settings.calculators")
                 Button { model.chooseFilesToSend() } label: {
                     LabeledRow(title: "Send files", detail: "Send programs, apps and variables to the calculator.")
                 }
@@ -125,6 +127,7 @@ struct SettingsView: View {
 
             Section("About") {
                 NavigationLink("About Graph89 Remastered", value: SettingsRoute.about)
+                    .accessibilityIdentifier("settings.about")
             }
         }
         .navigationTitle("Settings")

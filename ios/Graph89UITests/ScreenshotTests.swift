@@ -33,6 +33,19 @@ final class ScreenshotTests: XCTestCase {
         }
     }
 
+    /// Scrolls the list until `element` is there (lists make their rows only when they come into view) and taps it.
+    private func tapInList(_ app: XCUIApplication, _ element: XCUIElement) {
+        for _ in 0..<6 where !element.isHittable {
+            app.swipeUp()
+        }
+        element.tap()
+    }
+
+    /// Back to the previous screen of a navigation stack.
+    private func back(_ app: XCUIApplication) {
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+    }
+
     private func testOS(_ name: String) throws -> String {
         guard let dir = env["G89_TEST_OS_DIR"], !dir.isEmpty else { throw XCTSkip("G89_TEST_OS_DIR is not set") }
         let path = URL(fileURLWithPath: dir).appendingPathComponent(name).path
@@ -81,22 +94,21 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 10))
         snap("06-settings")
 
-        app.staticTexts["Skin and LCD"].tap()
+        tapInList(app, app.buttons["settings.skin"])
         XCTAssertTrue(app.navigationBars["Skin and LCD"].waitForExistence(timeout: 10))
-        sleep(4)  // previews draw
+        sleep(6)  // previews draw
         snap("07-skin-picker")
-        app.navigationBars.buttons.element(boundBy: 0).tap()
+        back(app)
 
-        app.staticTexts["Calculators"].tap()
+        tapInList(app, app.buttons["settings.calculators"])
         XCTAssertTrue(app.navigationBars["Calculators"].waitForExistence(timeout: 10))
         snap("08-calculators")
-        app.navigationBars.buttons.element(boundBy: 0).tap()
+        back(app)
 
-        app.swipeUp()
-        app.staticTexts["About Graph89 Remastered"].tap()
+        tapInList(app, app.buttons["settings.about"])
         XCTAssertTrue(app.navigationBars["About"].waitForExistence(timeout: 10))
         snap("09-about")
-        app.navigationBars.buttons.element(boundBy: 0).tap()
+        back(app)
 
         app.buttons["settingsDone"].tap()
         XCTAssertTrue(calculator.waitForExistence(timeout: 10))
