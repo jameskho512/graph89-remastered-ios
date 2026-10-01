@@ -1,0 +1,133 @@
+# Builds and tests the iPhone app on GitHub's macOS runners (free for public repositories), makes the unsigned .ipa
+# for AltStore / SideStore, and publishes it as a release for a tag v*.
+name: iOS
+
+on:
+  push:
+    branches: [main, ios]
+    tags: ['v*']
+    paths-ignore: ['**.md', 'docs/**']
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write  # the release of a tag
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 90
+    env:
+      SIMULATOR: iPhone 17 Pro
+      TEST_OS: ${{ github.workspace }}/build/test-os
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Tools
+        run: |
+          xcodebuild -version
+          brew install xcodegen
+          xcodegen --version
+
+      - name: Generate the Xcode project
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: Build the emulator cores
+        run: |
+          set -o pipefail
+          mkdir -p build
+          for t in G89GLib G89GModule G89GThread G89GObject G89TiConv G89TiCables G89TiFiles G89TiCalcs G89TiEmu G89TilEm G89Wrapper; do
+            echo "::group::$t"
+            xcodebuild build -project ios/Graph89.xcodeproj -target "$t" -sdk iphonesimulator -arch arm64               SYMROOT="$GITHUB_WORKSPACE/build/cores" 2>&1 | tee "build/core-$t.log" | grep -E "error:|BUILD (SUCCEEDED|FAILED)" | head -80 || true
+            echo "::endgroup::"
+          done
+          ! grep -l "BUILD FAILED" build/core-*.log
+
+      - name: Cache the test operating systems
+        uses: actions/cache@v4
+        with:
+          path: build/test-os
+          key: test-os-${{ hashFiles('ios/scripts/fetch-test-os.sh') }}
+
+      - name: Fetch the test operating systems (PedroM, KnightOS)
+        run: ios/scripts/fetch-test-os.sh "$TEST_OS"
+
+      - name: Build for testing
+        if: success() || failure()
+        run: |
+          set -o pipefail
+          mkdir -p build
+          xcodebuild build-for-testing -project ios/Graph89.xcodeproj -scheme Graph89 \
+            -destination "platform=iOS Simulator,name=$SIMULATOR" -derivedDataPath build/dd \
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee build/build.log | grep -E "error:|warning: unused|BUILD (SUCCEEDED|FAILED)" | head -300
+
+      - name: Unit tests
+        env:
+          TEST_RUNNER_G89_TEST_OS_DIR: ${{ github.workspace }}/build/test-os
+          TEST_RUNNER_G89_OUTPUT_DIR: ${{ github.workspace }}/build/output
+        run: |
+          set -o pipefail
+          xcodebuild test-without-building -project ios/Graph89.xcodeproj -scheme Graph89 \
+            -destination "platform=iOS Simulator,name=$SIMULATOR" -derivedDataPath build/dd \
+            -only-testing:Graph89Tests -resultBundlePath build/UnitTests.xcresult 2>&1 | tee build/unit-tests.log \
+            | grep -E "Test Case .* (passed|failed|skipped)|error:|rendered|\*\* TEST" | head -400
+
+      - name: UI tests (screenshots)
+        if: success() || failure()
+        env:
+          TEST_RUNNER_G89_TEST_OS_DIR: ${{ github.workspace }}/build/test-os
+          TEST_RUNNER_G89_OUTPUT_DIR: ${{ github.workspace }}/build/output
+        run: |
+          set -o pipefail
+          xcodebuild test-without-building -project ios/Graph89.xcodeproj -scheme Graph89 \
+            -destination "platform=iOS Simulator,name=$SIMULATOR" -derivedDataPath build/dd \
+            -only-testing:Graph89UITests -resultBundlePath build/UITests.xcresult 2>&1 | tee build/ui-tests.log \
+            | grep -E "Test Case .* (passed|failed|skipped)|error:|\*\* TEST" | head -200
+
+      - name: Unsigned .ipa
+        if: success() || failure()
+        run: |
+          set -o pipefail
+          xcodebuild build -project ios/Graph89.xcodeproj -scheme Graph89 -configuration Release \
+            -destination 'generic/platform=iOS' -derivedDataPath build/release \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" 2>&1 | tee build/release.log \
+            | grep -E "error:|BUILD (SUCCEEDED|FAILED)" | head -100
+          rm -rf build/Payload && mkdir -p build/Payload
+          cp -R build/release/Build/Products/Release-iphoneos/Graph89.app build/Payload/
+          (cd build && zip -qry Graph89.ipa Payload)
+          ls -l build/Graph89.ipa
+
+      - name: Test attachments
+        if: success() || failure()
+        run: |
+          for r in build/UnitTests.xcresult build/UITests.xcresult; do
+            [ -d "$r" ] && xcrun xcresulttool export attachments --path "$r" --output-path "build/output/attachments/$(basename $r .xcresult)" || true
+          done
+
+      - uses: actions/upload-artifact@v4
+        if: success() || failure()
+        with:
+          name: test-output
+          path: |
+            build/output
+            build/*.log
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        if: success() || failure()
+        with:
+          name: Graph89-ipa
+          path: build/Graph89.ipa
+          if-no-files-found: ignore
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" build/Graph89.ipa --title "Graph89 Remastered $GITHUB_REF_NAME for iPhone" \
+            --notes "Unsigned .ipa: install it with AltStore or SideStore (see README). The app does not include any Texas Instruments software."

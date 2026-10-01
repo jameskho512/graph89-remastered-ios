@@ -22,3 +22,7 @@ keystore.properties
 
 # TI OS image bundled into debug builds for personal use. The TI OS is copyrighted: never commit it.
 app/src/debug/assets/rom/
+
+# iOS: the generated Xcode project (ios/project.yml is the source) and build output
+ios/Graph89.xcodeproj/
+ios/build/
