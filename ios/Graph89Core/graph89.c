@@ -37,6 +37,13 @@ static void *log_context;
 
 static bool running(void) { return is_tiemu || is_tilem; }
 
+/* GLib reads the charset from the environment once; the Android app has none set, so it gets ASCII, which decides the
+   names of files the calculator sends (Greek letters become _alpha_ ...). The iPhone app and its tests get the same. */
+__attribute__((constructor)) static void g89_load(void)
+{
+    setenv("CHARSET", "ASCII", 1);
+}
+
 /* TiEmu's link port (dbus.c recfile) calls this on the engine thread, inside hw_m68k_run. */
 static void file_received(const char *path, const char *name)
 {
@@ -88,6 +95,8 @@ int32_t g89_init(const g89_config *c)
     graph89_init_commons(c->calc_type, c->lcd_width, c->lcd_height, c->zoom, c->grayscale, c->grid,
                          c->pixel_on, c->pixel_off, c->grid_color, c->speed,
                          c->tmp_dir != NULL ? c->tmp_dir : "");
+    /* only TiEmu models set libtifiles' TMP_DIR; .tig handling must never see it NULL */
+    if (!is_tiemu && c->tmp_dir != NULL && c->tmp_dir[0] != 0) tiemu_set_tmp_dir(c->tmp_dir);
     pthread_mutex_unlock(&lifecycle_lock);
     return G89_OK;
 }

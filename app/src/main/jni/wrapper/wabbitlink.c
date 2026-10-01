@@ -283,6 +283,10 @@ LINK_ERR forceload_os(TilemCalc* calc, TIFILE_t *tifile) {
 		} else {
 			page = i;
 		}
+		/* a page number above the OS range (malformed file) would write past the end of the flash */
+		if (page >= (u_int) flash_pages) {
+			return LERR_FILE;
+		}
 		int sector = (page / 4) * 4;
 		int size;
 		if (sector >= flash_pages - 4) {

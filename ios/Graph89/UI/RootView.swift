@@ -101,18 +101,20 @@ private struct ModalHost: ViewModifier {
                 model.filesPicked(urls, for: request)
             }
             .fileExporter(
-                isPresented: shown(saving != nil),
+                // closed without a result (cancelled): the file is offered again; after onCompletion this does nothing
+                isPresented: shown(saving != nil) { DispatchQueue.main.async { model.savingFinished(saved: false) } },
                 document: saving.map { ReceivedFileDocument(url: $0.url) },
                 contentType: .data,
-                defaultFilename: saving?.name,
-                onCompletion: { result in
-                    switch result {
-                    case .success: model.savingFinished(saved: true)
-                    case .failure(let error): model.savingFinished(saved: false, error: error)
-                    }
-                },
-                onCancellation: { model.savingFinished(saved: false) }
-            )
+                defaultFilename: saving?.name
+            ) { result in
+                switch result {
+                case .success:
+                    model.savingFinished(saved: true)
+                case .failure(let error):
+                    let cancelled = (error as? CocoaError)?.code == .userCancelled
+                    model.savingFinished(saved: false, error: cancelled ? nil : error)
+                }
+            }
             .alert("Reset the calculator?", isPresented: shown(model.confirmReset) { model.confirmReset = false }) {
                 Button("Reset", role: .destructive) { model.resetCalculator() }
                 Button("Cancel", role: .cancel) {}

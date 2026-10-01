@@ -27,7 +27,10 @@ settings:
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     DEAD_CODE_STRIPPING: YES
     # the cores are old C: what the Android build allows, plus what newer clang made errors by default
+    # -fgnu89-inline: glib's extern inline helpers get one definition (in gutils.c), not one per file;
+    # -funsigned-char: char is unsigned on Android's ARM builds, which the cores were tested on
     G89_CORE_CFLAGS: >-
+      -fgnu89-inline -funsigned-char
       -Wno-error=implicit-function-declaration -Wno-error=implicit-int -Wno-error=int-conversion
       -Wno-error=incompatible-function-pointer-types -Wno-error=incompatible-pointer-types -Wno-error=return-type
       -Wno-error=format-security -Wno-expansion-to-defined -Wno-compound-token-split-by-macro
