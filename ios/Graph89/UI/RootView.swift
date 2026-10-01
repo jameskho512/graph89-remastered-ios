@@ -89,6 +89,7 @@ private struct ModalHost: ViewModifier {
                         .background(.regularMaterial, in: Capsule())
                         .padding(.bottom, 48)
                         .transition(.opacity)
+                        .allowsHitTesting(false)  // like a toast: the keys under it keep working
                 }
             }
             .animation(.easeInOut(duration: 0.2), value: model.notice)

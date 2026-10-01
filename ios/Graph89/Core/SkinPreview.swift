@@ -48,14 +48,19 @@ enum SkinPreview {
     }
 
     /// Where the LCD goes, as on this phone: `viewWidth` x `viewHeight` is the real emulator view, which sets its share.
+    /// The zoom is Skin.initialize's: automatic fills the width (up to half the height), fractionally.
     static func lcdArea(model: CalcModel, width: Int, viewWidth: Int, viewHeight: Int, screenScale: Int) -> LcdArea {
         let f = CGFloat(width) / CGFloat(max(viewWidth, 1))
         let maxZoom = viewWidth / model.lcdWidth
-        let zoom = screenScale <= 0 ? min(maxZoom, Int(0.5 * Double(viewHeight)) / model.lcdHeight) : min(screenScale, maxZoom)
-        let lw = CGFloat(model.lcdWidth * zoom) * f
-        let lh = CGFloat(model.lcdHeight * zoom) * f
+        let zoom: Float = screenScale <= 0
+            ? min(Float(viewWidth) / Float(model.lcdWidth), 0.5 * Float(viewHeight) / Float(model.lcdHeight))
+            : Float(min(screenScale, maxZoom))
+        let screenW = (Float(model.lcdWidth) * zoom).rounded()
+        let lcdH = (Float(model.lcdHeight) * zoom).rounded()
+        let lw = CGFloat(screenW) * f
+        let lh = CGFloat(lcdH) * f
         return LcdArea(
-            bandHeight: Int(CGFloat(model.lcdHeight * zoom + 10) * f),
+            bandHeight: Int((CGFloat(lcdH) + 10) * f),
             screen: CGRect(x: (CGFloat(width) - lw) / 2, y: 5 * f, width: lw, height: lh)
         )
     }

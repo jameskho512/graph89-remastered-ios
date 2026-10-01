@@ -84,6 +84,13 @@ final class ConfigTests: XCTestCase {
         defaults.removePersistentDomain(forName: suite)
     }
 
+    func testAtomicChangesInOneStep() {
+        let queue = Atomic<[Int]>([1])
+        queue.mutate { $0 += [2, 3] }
+        XCTAssertEqual(queue.swap([]), [1, 2, 3])
+        XCTAssertEqual(queue.value, [])
+    }
+
     func testLcdSnapshotColourBlendsBetweenOffAndOn() {
         let lcd = LcdColors(background: 0xFF00_0000, pixelOff: 0xFF00_0000, pixelOn: 0xFFFF_FFFF)
         XCTAssertEqual(LcdSnapshot.color(0, lcd), 0xFF00_0000)
@@ -134,6 +141,24 @@ final class RomStoreTests: XCTestCase {
         XCTAssertEqual(RomStore.importFile(at: file, into: CalcEntry(id: "ti83-1", model: .TI83)), 801)
         XCTAssertTrue(RomStore.calculators().isEmpty)
         XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("ti83-1").path))  // nothing left behind
+    }
+
+    func testCleanUpRemovesWhatAnEndedInstallLeft() throws {
+        let fm = FileManager.default
+        try "ti89t-1 TI89T\nactive ti89t-1\n".write(to: root.appendingPathComponent("calculators.txt"), atomically: true, encoding: .utf8)
+        let listed = root.appendingPathComponent("ti89t-1")
+        let orphan = root.appendingPathComponent("ti84plus-1")
+        try fm.createDirectory(at: listed, withIntermediateDirectories: true)
+        try fm.createDirectory(at: orphan, withIntermediateDirectories: true)
+        try Data(count: 10).write(to: listed.appendingPathComponent("image.img"))
+        try Data(count: 10).write(to: listed.appendingPathComponent("image.img.new"))
+        try Data(count: 10).write(to: RomStore.tmpDir().appendingPathComponent("import_os.89u"))
+        RomStore.cleanUp()
+        XCTAssertTrue(fm.fileExists(atPath: listed.appendingPathComponent("image.img").path))
+        XCTAssertFalse(fm.fileExists(atPath: listed.appendingPathComponent("image.img.new").path))
+        XCTAssertFalse(fm.fileExists(atPath: orphan.path))
+        XCTAssertFalse(fm.fileExists(atPath: RomStore.tmpDir().appendingPathComponent("import_os.89u").path))
+        XCTAssertTrue(fm.fileExists(atPath: root.appendingPathComponent("calculators.txt").path))
     }
 
     func testRejectsAnOsFileOfAnotherModel() throws {

@@ -20,11 +20,11 @@ struct Graph89App: App {
     var body: some Scene {
         WindowGroup {
             RootView(model: model)
-                .onAppear { UIApplication.shared.isIdleTimerDisabled = true }  // the screen stays on, as on a calculator
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .active: model.appBecameActive()
+            case .inactive: model.appBecameInactive()
             case .background: model.appEnteredBackground()
             default: break
             }

@@ -11,6 +11,7 @@
  */
 
 import Foundation
+import UIKit
 
 /// The installed calculators, in Application Support/Graph89. Each has a folder (named by its id) with image.img and
 /// image.img.state; calculators.txt lists them ("id model" per line) and "active <id>" names the one on screen.
@@ -168,6 +169,26 @@ enum RomStore {
         return error
     }
 
+    /// Deletes what an install the app was ended in the middle of left behind: folders of calculators that are not in
+    /// the list, half-built images and copies of picked files.
+    static func cleanUp() {
+        let listed = Set(calculators().map(\.id))
+        let items = (try? fm.contentsOfDirectory(at: root, includingPropertiesForKeys: [.isDirectoryKey])) ?? []
+        for item in items where (try? item.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true {
+            let name = item.lastPathComponent
+            if name == "tmp" { continue }
+            if listed.contains(name) {
+                try? fm.removeItem(at: item.appendingPathComponent("image.img.new"))
+            } else {
+                try? fm.removeItem(at: item)
+            }
+        }
+        let tmp = tmpDir()
+        for item in (try? fm.contentsOfDirectory(at: tmp, includingPropertiesForKeys: nil)) ?? [] where item.lastPathComponent.hasPrefix("import_") {
+            try? fm.removeItem(at: item)
+        }
+    }
+
     /// A new, not yet installed calculator of `model` with a unique folder id.
     static func newEntry(_ model: CalcModel) -> CalcEntry {
         let taken = Set(calculators().map(\.id))
@@ -220,11 +241,17 @@ enum RomInstaller {
     static func start(_ install: @escaping () -> Int32, completion: @escaping (Int32) -> Void) {
         if running { return }
         running = true
+        // it finishes also when the user leaves the app meanwhile
+        var task = UIBackgroundTaskIdentifier.invalid
+        task = UIApplication.shared.beginBackgroundTask(withName: "Install ROM") {
+            UIApplication.shared.endBackgroundTask(task)
+        }
         Thread {
             let error = install()
             DispatchQueue.main.async {
                 running = false
                 completion(error)
+                UIApplication.shared.endBackgroundTask(task)
             }
         }.start()
     }

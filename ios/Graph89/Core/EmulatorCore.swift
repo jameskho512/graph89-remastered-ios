@@ -69,6 +69,9 @@ enum EmulatorCore {
     /// Sends a file over the emulated link; blocks while the calculator takes it. Returns 0 or an error code.
     static func sendFile(_ path: String) -> Int32 { g89_send_file(path) }
 
+    /// Makes a link transfer in progress give up soon (any thread); the next initialize clears it.
+    static func abortLink() { g89_abort_link() }
+
     // MARK: - screen
 
     /// Reads the LCD. Returns a checksum of the picture, which changes when the picture does, and the screen's state.

@@ -23,6 +23,22 @@ final class Atomic<Value> {
         get { lock.lock(); defer { lock.unlock() }; return stored }
         set { lock.lock(); stored = newValue; lock.unlock() }
     }
+
+    /// Changes the value in one step (a get and a set apart could lose another thread's change in between).
+    func mutate(_ body: (inout Value) -> Void) {
+        lock.lock()
+        body(&stored)
+        lock.unlock()
+    }
+
+    /// Replaces the value and returns the old one, in one step.
+    func swap(_ new: Value) -> Value {
+        lock.lock()
+        defer { lock.unlock() }
+        let old = stored
+        stored = new
+        return old
+    }
 }
 
 /// Owns the running emulation: skin, the two worker threads (engine + LCD refresh) and key input.
@@ -51,6 +67,9 @@ final class EmulatorSession {
         get { _resetCalc.value }
         set { _resetCalc.value = newValue }
     }
+
+    /// Save the state at the next turn of the engine loop, without stopping (the app may be ended without notice).
+    private let saveRequested = Atomic(false)
 
     private let _config = Atomic(EmulatorConfig())
     /// Read by the worker threads; the next start applies all of it, key feedback applies at once.
@@ -147,7 +166,21 @@ final class EmulatorSession {
 
     /// Sends `files` (copies made by LinkFiles.stageForSending) to the calculator, which must be running for it.
     func sendFiles(_ files: [URL]) {
-        toSend.value = toSend.value + files
+        toSend.mutate { $0 += files }
+    }
+
+    /// Saves the state soon, while the calculator keeps running (when the app may be about to be ended).
+    func requestSave() {
+        saveRequested.value = true
+    }
+
+    /// Drops what was asked of the calculator on screen (reset, clock sync, files to send) when another one takes its
+    /// place, so it does not happen to that one.
+    func forgetRequests() {
+        resetCalc = false
+        syncClock = false
+        syncClockAfterBoot = false
+        for f in toSend.swap([]) { LinkFiles.sent(f) }
     }
 
     // MARK: - lifecycle
@@ -280,6 +313,7 @@ final class EmulatorSession {
             run = nil
             r.killed.value = true
             if r.preparing { return }  // still drawing the skin: it ends by itself, nothing native has started
+            EmulatorCore.abortLink()  // a file transfer in progress gives up, so the engine thread ends soon
             r.engineDone.wait()
             r.screenDone.wait()
 
@@ -361,6 +395,8 @@ final class EmulatorSession {
                 break
             }
 
+            if saveRequested.swap(false) && runCntr > 20 { writeState() }
+
             if resetCalc {
                 _ = EmulatorCore.reset()
                 resetCalc = false
@@ -395,11 +431,7 @@ final class EmulatorSession {
 
     /// Sends the queued files one after another (each transfer runs the calculator itself until it is done).
     private func sendQueued(_ r: Run) {
-        let files: [URL] = {
-            let f = toSend.value
-            toSend.value = []
-            return f
-        }()
+        let files = toSend.swap([])
         var failed: [String] = []
         for f in files {
             if r.killed.value {
@@ -442,9 +474,23 @@ final class EmulatorSession {
         return EmulatorCore.loadState(state.path)
     }
 
+    /// Saves into new files, then puts them in place: the app being ended halfway through never leaves a broken state
+    /// or (TilEm, whose save writes the whole flash with the archive) a broken image.
     private func writeState() {
         guard config.saveStateOnExit, let state = RomStore.state(), let image = RomStore.image() else { return }
-        _ = EmulatorCore.saveState(image: image.path, state: state.path)
+        let fm = FileManager.default
+        let tilem = model.engine == .tilem
+        let newState = state.deletingLastPathComponent().appendingPathComponent("image.img.state.saving")
+        let newImage = image.deletingLastPathComponent().appendingPathComponent("image.img.saving")
+        let ok = EmulatorCore.saveState(image: tilem ? newImage.path : image.path, state: newState.path) == 0
+        func place(_ new: URL, _ url: URL) -> Bool {
+            if fm.fileExists(atPath: url.path) { return (try? fm.replaceItemAt(url, withItemAt: new)) != nil }
+            return (try? fm.moveItem(at: new, to: url)) != nil
+        }
+        // the flash first, then the state that goes with it
+        if ok && (!tilem || place(newImage, image)) { _ = place(newState, state) }
+        try? fm.removeItem(at: newState)
+        try? fm.removeItem(at: newImage)
     }
 
     private static let engineLoopSleep = 30  // ms

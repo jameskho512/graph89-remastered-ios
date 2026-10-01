@@ -173,6 +173,10 @@ void g89_sync_clock(void);
    that stops reading can hang the call). TilEm: 0, -4, -10, or G89_E_BAD_FILE. */
 int32_t g89_send_file(const char *path);
 
+/* Makes a TiEmu link transfer in progress (file send, clock sync, a file the calculator sends) give up at its next
+   byte, so the engine thread returns soon; g89_init clears it. [any] */
+void g89_abort_link(void);
+
 /* Changes the speed coefficient for the next slices (> 0). */
 void g89_set_speed(double speed);
 

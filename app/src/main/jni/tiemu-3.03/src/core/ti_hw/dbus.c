@@ -384,6 +384,10 @@ int ilp_reset(CableHandle *h) {
    or sending hung the engine thread, and the app with it). */
 #define G89_LINK_BYTE_TIMEOUT 100
 
+/* Graph89: set (from any thread) to make a transfer in progress give up at its next byte, so the app can stop the
+   calculator at once (iOS ends an app that takes too long to go to the background). Cleared when an emulator starts. */
+volatile int graph89_link_abort = 0;
+
 int ilp_send(CableHandle *h, uint8_t *data, uint32_t len) {
 	unsigned int i;
 	tiTIME clk;
@@ -399,7 +403,7 @@ int ilp_send(CableHandle *h, uint8_t *data, uint32_t len) {
 		TO_START(clk);
 		while (f2t_flag) {
 			hw_m68k_run(1);
-			if (TO_ELAPSED(clk, G89_LINK_BYTE_TIMEOUT))
+			if (graph89_link_abort || TO_ELAPSED(clk, G89_LINK_BYTE_TIMEOUT))
 				return ERROR_WRITE_TIMEOUT;
 		};
 	}
@@ -415,7 +419,7 @@ int ilp_recv(CableHandle *h, uint8_t *data, uint32_t len) {
 		TO_START(clk);
 		while (!t2f_flag) {
 			hw_m68k_run(1);
-			if (TO_ELAPSED(clk, G89_LINK_BYTE_TIMEOUT))
+			if (graph89_link_abort || TO_ELAPSED(clk, G89_LINK_BYTE_TIMEOUT))
 				return ERROR_READ_TIMEOUT;
 		};
 
@@ -436,7 +440,7 @@ static int do_cpu(int duration)	// thenth of seconds
 	TO_START(clk);
 	while (1) {
 		hw_m68k_run(1);
-		if (TO_ELAPSED(clk, duration))
+		if (graph89_link_abort || TO_ELAPSED(clk, duration))
 			return !0;;
 	};
 	return 0;

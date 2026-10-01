@@ -74,6 +74,8 @@ final class EmulatorHostView: UIView {
 
     override func didMoveToWindow() {
         super.didMoveToWindow()
+        // the screen stays on while the calculator shows, as on a calculator
+        UIApplication.shared.isIdleTimerDisabled = window != nil
         if window != nil { setNeedsLayout() } else { detach() }
     }
 
@@ -83,13 +85,15 @@ final class EmulatorHostView: UIView {
     }
 
     func detach() {
+        UIApplication.shared.isIdleTimerDisabled = false
         model.session.onViewDetached()
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
         guard let window else { return }
-        let scale = window.screen.scale
+        // the panel's own pixels (nativeScale differs from scale on the mini models and with Display Zoom)
+        let scale = window.screen.nativeScale
         let m = edgeMargins(window)
         // whole pixels, so the skin is drawn 1:1
         func px(_ v: CGFloat) -> CGFloat { (v * scale).rounded() / scale }
@@ -173,7 +177,8 @@ final class CalculatorView: UIView, UIGestureRecognizerDelegate {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
 
-    private var scale: CGFloat { window?.screen.scale ?? UIScreen.main.scale }
+    /// Pixels of the skin per point: the panel's own pixels, so the skin and a whole-number LCD zoom show 1:1.
+    private var scale: CGFloat { window?.screen.nativeScale ?? UIScreen.main.nativeScale }
 
     /// Called from any thread: draws again on the main thread (once, however many frames came meanwhile).
     func displayChanged() {

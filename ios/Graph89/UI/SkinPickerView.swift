@@ -281,8 +281,7 @@ private struct LcdStrip: View {
                 .scrollIndicators(.hidden)
                 .contentMargins(.horizontal, max((geo.size.width - lcdItemWidth) / 2, 0), for: .scrollContent)
                 .scrollTargetBehavior(.viewAligned)
-                .scrollPosition(id: $centre)
-                .onAppear { proxy.scrollTo(settled, anchor: .center) }
+                .scrollPosition(id: $centre, anchor: .center)
             }
         }
     }
@@ -482,8 +481,7 @@ private struct SkinStrip: View {
                 .scrollIndicators(.hidden)
                 .contentMargins(.horizontal, max((geo.size.width - skinCardWidth) / 2, 0), for: .scrollContent)
                 .scrollTargetBehavior(.viewAligned)
-                .scrollPosition(id: $centre)
-                .onAppear { proxy.scrollTo(settled, anchor: .center) }
+                .scrollPosition(id: $centre, anchor: .center)
             }
         }
     }

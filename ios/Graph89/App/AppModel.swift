@@ -83,6 +83,7 @@ final class AppModel {
         #endif
         SkinCache.wipeIfNewBuild()
         config = settings.load()
+        RomStore.cleanUp()  // what an install the app was ended in the middle of left behind
         refreshCalculators()
         LinkFiles.clear()  // files left from an earlier run (a send cut short, received files never saved)
 
@@ -97,6 +98,10 @@ final class AppModel {
             }
         }
         session.onFileReceived = { [weak self] file in DispatchQueue.main.async { self?.received.append(file) } }
+        // the last chance to save when iOS ends the app while it is in the foreground
+        NotificationCenter.default.addObserver(forName: UIApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.session.pause()
+        }
 
         #if DEBUG
         // UI tests: install a calculator OS from a file at the first start (like the Android debug build's bundled OS)
@@ -117,12 +122,25 @@ final class AppModel {
         session.resume()
     }
 
-    /// The app went to the background: the state is saved now, as iOS may end the app without notice.
+    /// The app is about to leave the screen (the app switcher, a call): the calculator saves while it keeps running,
+    /// as the app may be ended from the app switcher without going to the background first.
+    func appBecameInactive() {
+        session.requestSave()
+    }
+
+    /// The app went to the background: the calculator stops and saves now, as iOS may end the app without notice.
+    /// The stop runs off the main thread, which iOS must not see blocked while the app leaves.
     func appEnteredBackground() {
         session.keypad.unpressAll()
-        let task = UIApplication.shared.beginBackgroundTask(withName: "Save calculator state")
-        session.pause()
-        UIApplication.shared.endBackgroundTask(task)
+        var task = UIBackgroundTaskIdentifier.invalid
+        task = UIApplication.shared.beginBackgroundTask(withName: "Save calculator state") {
+            UIApplication.shared.endBackgroundTask(task)
+        }
+        let s = session
+        DispatchQueue.global(qos: .userInitiated).async {
+            s.pause()
+            DispatchQueue.main.async { UIApplication.shared.endBackgroundTask(task) }
+        }
     }
 
     // MARK: - settings and menu
@@ -199,6 +217,7 @@ final class AppModel {
     /// Shows `c`: from the full-screen list or from Settings, the app goes straight to the calculator.
     func selectCalculator(_ c: CalcEntry) {
         session.stop()
+        if c.id != activeId { session.forgetRequests() }
         RomStore.setActive(c.id)
         refreshCalculators()
         if settingsOpen { closeSettings() }
@@ -211,7 +230,10 @@ final class AppModel {
     }
 
     func removeCalculator(_ c: CalcEntry) {
-        if c.id == activeId { session.stop() }
+        if c.id == activeId {
+            session.stop()
+            session.forgetRequests()
+        }
         RomStore.remove(c.id)
         refreshCalculators()
     }
@@ -320,6 +342,7 @@ final class AppModel {
         installing = false
         refreshCalculators()
         if error == 0 {
+            session.forgetRequests()  // a new calculator, or a new ROM: nothing asked of the old one applies
             showCalculators = false
             if settingsOpen { closeSettings() }
             session.syncClockAfterBoot = syncClockAfterInstall  // a new ROM starts with the default date; the engine sets the clock once

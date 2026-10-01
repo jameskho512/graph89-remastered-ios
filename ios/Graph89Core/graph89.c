@@ -27,6 +27,7 @@
 
 extern bool is_tilem;                                                          /* wrappercommon.c */
 extern void (*graph89_file_received_hook)(const char *path, const char *name);   /* tiemu dbus.c */
+extern volatile int graph89_link_abort;                                          /* tiemu dbus.c */
 extern TIFILE_t *FreeTiFile(TIFILE_t *tifile);                                 /* wabbitvar.c */
 
 static pthread_mutex_t lifecycle_lock = PTHREAD_MUTEX_INITIALIZER;  /* keys vs init/shutdown */
@@ -91,6 +92,7 @@ int32_t g89_init(const g89_config *c)
         return G89_E_BAD_ARGUMENT;                     /* tiemu_set_tmp_dir would strlen(NULL) */
 
     pthread_mutex_lock(&lifecycle_lock);
+    graph89_link_abort = 0;
     graph89_file_received_hook = file_received;        /* JNI re-armed it on every RunEngine/UploadFile */
     graph89_init_commons(c->calc_type, c->lcd_width, c->lcd_height, c->zoom, c->grayscale, c->grid,
                          c->pixel_on, c->pixel_off, c->grid_color, c->speed,
@@ -190,6 +192,11 @@ int32_t g89_send_file(const char *path)
         FreeTiFile(probe);
     }
     return tilem_send_file(path);
+}
+
+void g89_abort_link(void)
+{
+    graph89_link_abort = 1;
 }
 
 void g89_set_speed(double speed)
