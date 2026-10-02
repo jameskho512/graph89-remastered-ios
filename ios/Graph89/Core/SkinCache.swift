@@ -81,6 +81,8 @@ enum SkinCache {
         lock.unlock()
         let png = dir().appendingPathComponent("\(key).png")
         let bin = dir().appendingPathComponent("\(key).bin")
+        // not there (yet: put writes in the background): nothing to clean up
+        guard fm.fileExists(atPath: png.path), fm.fileExists(atPath: bin.path) else { return nil }
         guard let image = Graphics.image(contentsOf: png), let data = try? Data(contentsOf: bin), data.count >= 28 else {
             try? fm.removeItem(at: png)
             try? fm.removeItem(at: bin)
@@ -118,12 +120,17 @@ enum SkinCache {
             for v in [Int(k.minX), Int(k.minY), Int(k.maxX), Int(k.maxY), entry.maskWidth, entry.maskHeight] { append(Int32(v)) }
             append(Int32(bitPattern: entry.backgroundColor))
             data.append(contentsOf: entry.mask)
-            let tmp = d.appendingPathComponent("\(key).tmp.png")
-            // a missing cache file only means the skin is drawn again next time
-            guard Graphics.writePNG(entry.image, to: tmp), (try? data.write(to: d.appendingPathComponent("\(key).bin"))) != nil else { return }
+            // both files appear whole, the image last (get reads an entry only when both are there); a missing cache
+            // file only means the skin is drawn again next time
+            let tmpPng = d.appendingPathComponent("\(key).tmp.png")
+            let tmpBin = d.appendingPathComponent("\(key).tmp.bin")
+            guard Graphics.writePNG(entry.image, to: tmpPng), (try? data.write(to: tmpBin)) != nil else { return }
             let png = d.appendingPathComponent("\(key).png")
+            let bin = d.appendingPathComponent("\(key).bin")
             try? fm.removeItem(at: png)
-            try? fm.moveItem(at: tmp, to: png)
+            try? fm.removeItem(at: bin)
+            guard (try? fm.moveItem(at: tmpBin, to: bin)) != nil else { return }
+            try? fm.moveItem(at: tmpPng, to: png)
             prune(d)
         }
     }
